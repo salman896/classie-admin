@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #9d71c7;
+  --color-primary-hover: #8a5bb8;
+  --color-primary-light: #f6effc;
+  --color-primary-dark: #6f4798;
+  
+  --color-brand-pink: #f4719d;
+  --color-brand-pink-light: #fdf2f6;
+  --color-brand-sidebar: #1e1b2e;
+  --color-brand-sidebar-hover: #29243d;
+  --color-brand-sidebar-active: #3b3356;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+}
