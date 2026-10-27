@@ -17,7 +17,8 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'customers', label: 'Customers', icon: Users },
-    { id: 'recommendations', label: 'Recommendations', icon: Sparkles },
+    { id: 'influencers', label: 'Influencers', icon: Sparkles },
+    { id: 'recommendations', label: 'Recommendations', icon: Layers },
     { id: 'products', label: 'Products', icon: Package },
   ];
 

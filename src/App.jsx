@@ -8,6 +8,7 @@ import Customers from './pages/Customers';
 import Recommendations from './pages/Recommendations';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
+import Influencers from './pages/Influencers';
 
 const AdminLayout = () => {
   const { isAuthenticated } = useAuth();
@@ -25,6 +26,8 @@ const AdminLayout = () => {
         return <Orders />;
       case 'customers':
         return <Customers />;
+      case 'influencers':
+        return <Influencers />;
       case 'recommendations':
         return <Recommendations />;
       case 'products':
@@ -42,6 +45,8 @@ const AdminLayout = () => {
         return 'Order Management & Fulfillment';
       case 'customers':
         return 'Customer Database';
+      case 'influencers':
+        return 'Influencer & Partner Approvals';
       case 'recommendations':
         return 'Cycle Recommendation Plans';
       case 'products':
