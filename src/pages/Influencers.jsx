@@ -15,6 +15,11 @@ import {
   ShieldCheck,
   Tag,
   Filter,
+  Settings,
+  Sliders,
+  Save,
+  Truck,
+  Check,
 } from 'lucide-react';
 import { influencerService } from '../services/influencerService';
 
@@ -39,13 +44,61 @@ export default function Influencers() {
     reason: '',
   });
 
-  // Commission edit state
-  const [editingCommissionId, setEditingCommissionId] = useState(null);
-  const [customCommission, setCustomCommission] = useState(10);
+  // Settings Modal State
+  const [settingsModal, setSettingsModal] = useState({
+    isOpen: false,
+    loading: false,
+    saving: false,
+    success: false,
+  });
+
+  const [settingsForm, setSettingsForm] = useState({
+    influencer_customer_offer: 10,
+    influencer_share_percentage: 10,
+    internal_delivery_charge: 40,
+  });
 
   useEffect(() => {
     fetchInfluencers();
+    fetchSettings();
   }, [selectedStatus]);
+
+  const fetchSettings = async () => {
+    try {
+      const res = await influencerService.getSettings();
+      const isSuccess = res.result === 'success' || res.status === 'success';
+      if (isSuccess && Array.isArray(res.data)) {
+        const formObj = { ...settingsForm };
+        res.data.forEach((s) => {
+          if (s.key in formObj && s.value !== null && s.value !== undefined) {
+            formObj[s.key] = s.value;
+          }
+        });
+        setSettingsForm(formObj);
+      }
+    } catch (err) {
+      console.error('Failed to load settings', err);
+    }
+  };
+
+  const handleSaveSettings = async (e) => {
+    e.preventDefault();
+    try {
+      setSettingsModal((prev) => ({ ...prev, saving: true, success: false }));
+      await influencerService.updateSettings({
+        influencer_customer_offer: Number(settingsForm.influencer_customer_offer),
+        influencer_share_percentage: Number(settingsForm.influencer_share_percentage),
+        internal_delivery_charge: Number(settingsForm.internal_delivery_charge),
+      });
+      setSettingsModal((prev) => ({ ...prev, saving: false, success: true }));
+      setTimeout(() => {
+        setSettingsModal((prev) => ({ ...prev, isOpen: false, success: false }));
+      }, 1200);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update settings');
+      setSettingsModal((prev) => ({ ...prev, saving: false }));
+    }
+  };
 
   const fetchInfluencers = async () => {
     try {
@@ -239,6 +292,14 @@ export default function Influencers() {
             title="Refresh List"
           >
             <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setSettingsModal((prev) => ({ ...prev, isOpen: true }))}
+            className="px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all"
+            title="Program Settings"
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Commission & Offer Rules</span>
           </button>
         </div>
       </div>
@@ -471,6 +532,162 @@ export default function Influencers() {
                 Confirm Rejection
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Commission & Program Settings Modal */}
+      {settingsModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center">
+                  <Sliders className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Influencer Program Rules
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Global rules stored in database settings
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSettingsModal((prev) => ({ ...prev, isOpen: false }))}
+                className="text-slate-400 hover:text-slate-600 text-sm font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Formula Explainer Callout */}
+            <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 text-xs text-slate-700 space-y-1.5">
+              <p className="font-bold text-purple-900 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-purple-600" />
+                Influencer Share Calculation Formula:
+              </p>
+              <div className="font-mono text-purple-800 bg-white/80 p-2.5 rounded-xl border border-purple-200/60 text-[11px] font-bold">
+                Share Amount = (Selling Price - Inf Offer - Internal Delivery Charge) × Share %
+              </div>
+              <p className="text-[11px] text-slate-500">
+                * Internal delivery charge is deducted from influencer commission calculations and is NOT charged to the customer.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveSettings} className="space-y-4">
+              {/* Influencer Customer Offer */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Customer Offer Discount (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={settingsForm.influencer_customer_offer}
+                    onChange={(e) =>
+                      setSettingsForm((prev) => ({
+                        ...prev,
+                        influencer_customer_offer: e.target.value,
+                      }))
+                    }
+                    className="w-full pl-4 pr-10 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400">
+                    %
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Discount applied on selling price for customers who joined or purchased via creator referral.
+                </p>
+              </div>
+
+              {/* Influencer Share Percentage */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Influencer Commission Share (%)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={settingsForm.influencer_share_percentage}
+                    onChange={(e) =>
+                      setSettingsForm((prev) => ({
+                        ...prev,
+                        influencer_share_percentage: e.target.value,
+                      }))
+                    }
+                    className="w-full pl-4 pr-10 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500"
+                  />
+                  <span className="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400">
+                    %
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Commission earned by creators on net product value.
+                </p>
+              </div>
+
+              {/* Internal Delivery Charge */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Internal Delivery Charge (₹)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-400">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={settingsForm.internal_delivery_charge}
+                    onChange={(e) =>
+                      setSettingsForm((prev) => ({
+                        ...prev,
+                        internal_delivery_charge: e.target.value,
+                      }))
+                    }
+                    className="w-full pl-8 pr-4 py-2.5 text-xs font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Internal shipping cost deducted before computing creator share. (Customers are not billed this).
+                </p>
+              </div>
+
+              {settingsModal.success && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-600" />
+                  Settings updated successfully!
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSettingsModal((prev) => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={settingsModal.saving}
+                  className="px-5 py-2.5 text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl shadow-md shadow-purple-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  {settingsModal.saving ? 'Saving Changes...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

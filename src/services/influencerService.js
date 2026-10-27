@@ -15,4 +15,17 @@ export const influencerService = {
     const response = await apiClient.patch(`/api/admin/influencers/${uid}/approval/`, payload);
     return response.data;
   },
+
+  // Get system settings
+  getSettings: async () => {
+    const response = await apiClient.get('/api/admin/settings/');
+    return response.data;
+  },
+
+  // Update system settings (accepts key-value dict or array)
+  updateSettings: async (settingsData) => {
+    const response = await apiClient.post('/api/admin/settings/', settingsData);
+    return response.data;
+  },
 };
+
