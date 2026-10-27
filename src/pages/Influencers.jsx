@@ -56,9 +56,14 @@ export default function Influencers() {
       if (searchQuery) params.search = searchQuery;
 
       const res = await influencerService.getInfluencers(params);
-      if (res.status === 'success') {
-        setInfluencers(res.data.results || []);
-        if (res.data.metrics) {
+      const isSuccess = res.result === 'success' || res.status === 'success';
+      if (isSuccess) {
+        // Handle pagination data format: res.data (array) or res.data.results
+        const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+        setInfluencers(list);
+        if (res.metrics) {
+          setMetrics(res.metrics);
+        } else if (res.data?.metrics) {
           setMetrics(res.data.metrics);
         }
       } else {
@@ -285,13 +290,13 @@ export default function Influencers() {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 text-purple-700 font-bold flex items-center justify-center shrink-0 uppercase">
-                            {inf.user?.name?.[0] || 'I'}
+                            {(inf.name || inf.user?.name || 'I')[0]}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900">{inf.user?.name}</p>
-                            <p className="text-[11px] text-slate-500">{inf.user?.mobile}</p>
-                            {inf.user?.email && (
-                              <p className="text-[11px] text-slate-400">{inf.user?.email}</p>
+                            <p className="font-bold text-slate-900">{inf.name || inf.user?.name || 'Unknown'}</p>
+                            <p className="text-[11px] text-slate-500">{inf.mobile_number || inf.user?.mobile || inf.user?.mobile_number}</p>
+                            {(inf.email || inf.user?.email) && (
+                              <p className="text-[11px] text-slate-400">{inf.email || inf.user?.email}</p>
                             )}
                           </div>
                         </div>
