@@ -352,13 +352,31 @@ export default function Orders() {
                       })}
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => openOrderDetail(ord)}
-                        className="px-3 py-1.5 bg-[#9d71c7]/10 hover:bg-[#9d71c7]/20 text-[#6f4798] rounded-xl font-bold text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>Manage</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {ord.order_status !== 'delivered' && ord.order_status !== 'cancelled' && ord.order_status !== 'returned' && (
+                          <button
+                            onClick={() => {
+                              setSelectedOrder(ord);
+                              setTrackingIdInput(ord.tracking_id || '');
+                              setCourierPartnerInput(ord.courier_partner || 'Delhivery');
+                              setShippingNotesInput('');
+                              setShippingModalOpen(true);
+                            }}
+                            className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 rounded-xl font-bold text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            title={ord.tracking_id ? "Update Tracking" : "Ship & Add Tracking"}
+                          >
+                            <Truck className="w-3.5 h-3.5 text-sky-600" />
+                            <span>{ord.order_status === 'shipped' || ord.tracking_id ? 'Tracking' : 'Ship'}</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => openOrderDetail(ord)}
+                          className="px-3 py-1.5 bg-[#9d71c7]/10 hover:bg-[#9d71c7]/20 text-[#6f4798] rounded-xl font-bold text-xs inline-flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Manage</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
