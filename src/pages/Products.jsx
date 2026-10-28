@@ -181,9 +181,13 @@ const Products = () => {
       category: categories.length ? categories[0].key : 'period_care',
       product_type: '',
       description: '',
+      highlights: '',
+      how_to_use: '',
+      package_contents: '',
+      safety_warnings: '',
       hsn_code: '',
       tax_rate: '0.00',
-      has_variants: false, // Default to single product (no variants)
+      has_variants: true,
       is_active: true,
       mrp: '',
       selling_price: '',
@@ -200,9 +204,13 @@ const Products = () => {
       category: prod.category,
       product_type: prod.product_type || '',
       description: prod.description || '',
+      highlights: Array.isArray(prod.highlights) ? prod.highlights.join('\n') : (prod.highlights || ''),
+      how_to_use: prod.how_to_use || '',
+      package_contents: prod.package_contents || '',
+      safety_warnings: prod.safety_warnings || '',
       hsn_code: prod.hsn_code || '',
       tax_rate: prod.tax_rate || '0.00',
-      has_variants: prod.has_variants !== undefined ? prod.has_variants : false,
+      has_variants: prod.has_variants !== undefined ? prod.has_variants : true,
       is_active: prod.is_active !== undefined ? prod.is_active : true,
       mrp: prod.mrp || '',
       selling_price: prod.selling_price || '',
@@ -626,9 +634,62 @@ const Products = () => {
                     {activeProduct.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-600 mt-2 max-w-xl">
+                <p className="text-xs text-slate-600 mt-2 max-w-xl whitespace-pre-line leading-relaxed">
                   {activeProduct.description || 'No description provided.'}
                 </p>
+
+                {/* Rich Details Grid in Admin Inspection */}
+                <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-3 max-w-2xl">
+                  {activeProduct.highlights && activeProduct.highlights.length > 0 && (
+                    <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <CheckCircle2 size={12} className="text-[#9d71c7]" />
+                        <span>Highlights ({activeProduct.highlights.length})</span>
+                      </div>
+                      <ul className="text-[11px] text-slate-700 space-y-1 list-disc list-inside">
+                        {activeProduct.highlights.map((hl, idx) => (
+                          <li key={idx} className="line-clamp-2">{hl}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {activeProduct.package_contents && (
+                    <div className="bg-slate-50/80 p-3 rounded-xl border border-slate-200/60">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Package size={12} className="text-[#9d71c7]" />
+                        <span>What's Inside / Kit Breakdown</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                        {activeProduct.package_contents}
+                      </p>
+                    </div>
+                  )}
+
+                  {activeProduct.how_to_use && (
+                    <div className="bg-amber-50/40 p-3 rounded-xl border border-amber-200/60">
+                      <div className="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Layers size={12} className="text-amber-600" />
+                        <span>How To Use</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                        {activeProduct.how_to_use}
+                      </p>
+                    </div>
+                  )}
+
+                  {activeProduct.safety_warnings && (
+                    <div className="bg-rose-50/40 p-3 rounded-xl border border-rose-200/60">
+                      <div className="text-[10px] font-bold text-rose-800 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                        <Tag size={12} className="text-rose-600" />
+                        <span>Safety / Warnings</span>
+                      </div>
+                      <p className="text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                        {activeProduct.safety_warnings}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -923,6 +984,62 @@ const Products = () => {
                     value={productForm.description}
                     onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
                   />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 tracking-wider uppercase mb-1.5">
+                      Highlights (One per line)
+                    </label>
+                    <textarea
+                      rows="3"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#9d71c7]"
+                      placeholder="Antibacterial Strip&#10;Extra length for comfortable coverage&#10;High Absorbency"
+                      value={productForm.highlights}
+                      onChange={(e) => setProductForm({ ...productForm, highlights: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 tracking-wider uppercase mb-1.5">
+                      What's Inside / Kit Breakdown
+                    </label>
+                    <textarea
+                      rows="3"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#9d71c7]"
+                      placeholder="• XL Pads – 2 Nos&#10;• Wet Wipes – 4 Nos"
+                      value={productForm.package_contents}
+                      onChange={(e) => setProductForm({ ...productForm, package_contents: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 tracking-wider uppercase mb-1.5">
+                      How to Use
+                    </label>
+                    <textarea
+                      rows="2"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#9d71c7]"
+                      placeholder="Step-by-step instructions..."
+                      value={productForm.how_to_use}
+                      onChange={(e) => setProductForm({ ...productForm, how_to_use: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 tracking-wider uppercase mb-1.5">
+                      Safety & Warnings
+                    </label>
+                    <textarea
+                      rows="2"
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#9d71c7]"
+                      placeholder="Precautions, fabric testing, warning notes..."
+                      value={productForm.safety_warnings}
+                      onChange={(e) => setProductForm({ ...productForm, safety_warnings: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
