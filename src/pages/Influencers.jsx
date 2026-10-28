@@ -20,6 +20,11 @@ import {
   Save,
   Truck,
   Check,
+  Wallet,
+  Eye,
+  CreditCard,
+  ChevronRight,
+  ArrowRight,
 } from 'lucide-react';
 import { influencerService } from '../services/influencerService';
 
@@ -52,11 +57,95 @@ export default function Influencers() {
     success: false,
   });
 
+  // Detail Modal State
+  const [detailModal, setDetailModal] = useState({
+    isOpen: false,
+    loading: false,
+    data: null,
+  });
+
+  // Pay Modal State
+  const [payoutModal, setPayoutModal] = useState({
+    isOpen: false,
+    influencer: null,
+    amount: '',
+    note: '',
+    submitting: false,
+    error: '',
+    success: false,
+  });
+
   const [settingsForm, setSettingsForm] = useState({
     influencer_customer_offer: 10,
     influencer_share_percentage: 10,
     internal_delivery_charge: 40,
   });
+
+  const handleOpenDetail = async (inf) => {
+    try {
+      setDetailModal({ isOpen: true, loading: true, data: null });
+      const res = await influencerService.getInfluencerDetail(inf.uid);
+      const isSuccess = res.result === 'success' || res.status === 'success';
+      setDetailModal({
+        isOpen: true,
+        loading: false,
+        data: isSuccess ? res.data : inf,
+      });
+    } catch (err) {
+      console.error(err);
+      setDetailModal({ isOpen: true, loading: false, data: inf });
+    }
+  };
+
+  const handleOpenPayout = (inf) => {
+    const needToPay = Number(inf.metrics?.need_to_pay || inf.metrics?.wallet_balance || 0);
+    setPayoutModal({
+      isOpen: true,
+      influencer: inf,
+      amount: needToPay > 0 ? needToPay.toFixed(2) : '0.00',
+      note: 'Settlement via direct bank transfer / UPI',
+      submitting: false,
+      error: '',
+      success: false,
+    });
+  };
+
+  const handleConfirmPayout = async (e) => {
+    e.preventDefault();
+    if (!payoutModal.influencer) return;
+    const amt = Number(payoutModal.amount);
+    if (isNaN(amt) || amt <= 0) {
+      setPayoutModal((prev) => ({ ...prev, error: 'Please enter a valid payout amount greater than zero.' }));
+      return;
+    }
+
+    try {
+      setPayoutModal((prev) => ({ ...prev, submitting: true, error: '' }));
+      const res = await influencerService.payInfluencer(payoutModal.influencer.uid, {
+        amount: amt,
+        note: payoutModal.note,
+      });
+
+      if (res.result === 'success' || res.status === 'success') {
+        setPayoutModal((prev) => ({ ...prev, submitting: false, success: true }));
+        fetchInfluencers();
+        if (detailModal.isOpen && detailModal.data?.uid === payoutModal.influencer.uid) {
+          handleOpenDetail(payoutModal.influencer);
+        }
+        setTimeout(() => {
+          setPayoutModal({ isOpen: false, influencer: null, amount: '', note: '', submitting: false, error: '', success: false });
+        }, 1200);
+      } else {
+        setPayoutModal((prev) => ({ ...prev, submitting: false, error: res.errors || res.message || 'Payout failed.' }));
+      }
+    } catch (err) {
+      setPayoutModal((prev) => ({
+        ...prev,
+        submitting: false,
+        error: err.response?.data?.errors || err.response?.data?.message || 'Payout request failed.',
+      }));
+    }
+  };
 
   useEffect(() => {
     fetchInfluencers();
@@ -334,8 +423,9 @@ export default function Influencers() {
                   <th className="py-3.5 px-4">10% Promo Code</th>
                   <th className="py-3.5 px-4">Commission</th>
                   <th className="py-3.5 px-4">Performance</th>
+                  <th className="py-3.5 px-4">Payout Balance</th>
                   <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Approval Actions</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -412,6 +502,24 @@ export default function Influencers() {
                         </div>
                       </td>
 
+                      {/* Payout Balance (Paid vs Need to Pay) */}
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className="text-slate-400">Paid:</span>
+                            <span className="font-semibold text-slate-700">
+                              ₹{Number(inf.metrics?.total_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            <span className="text-amber-600 font-bold">Need to Pay:</span>
+                            <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              ₹{Number(inf.metrics?.need_to_pay ?? inf.metrics?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
                       {/* Status */}
                       <td className="py-4 px-4">
                         {isPending && (
@@ -436,13 +544,36 @@ export default function Influencers() {
 
                       {/* Actions */}
                       <td className="py-4 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* View Detail Button */}
+                          <button
+                            onClick={() => handleOpenDetail(inf)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors flex items-center gap-1"
+                            title="View Creator Details & Attributed Orders"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Details</span>
+                          </button>
+
+                          {/* Pay Creator Button (Active Partners with pending balance) */}
+                          {isApproved && (
+                            <button
+                              onClick={() => handleOpenPayout(inf)}
+                              disabled={Number(inf.metrics?.need_to_pay ?? inf.metrics?.wallet_balance ?? 0) <= 0}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 shadow-xs disabled:opacity-40 disabled:hover:bg-emerald-600"
+                              title="Settle Pending Commission to Creator"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Pay</span>
+                            </button>
+                          )}
+
                           {isPending && (
                             <>
                               <button
                                 disabled={isLoading}
                                 onClick={() => handleApprove(inf)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
+                                className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 Approve
@@ -450,7 +581,7 @@ export default function Influencers() {
                               <button
                                 disabled={isLoading}
                                 onClick={() => handleOpenReject(inf)}
-                                className="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
+                                className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-xs transition-colors flex items-center gap-1 disabled:opacity-50"
                               >
                                 <XCircle className="w-3.5 h-3.5" />
                                 Reject
@@ -462,9 +593,9 @@ export default function Influencers() {
                             <button
                               disabled={isLoading}
                               onClick={() => handleOpenReject(inf)}
-                              className="px-2.5 py-1 text-[11px] text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                              className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                             >
-                              Revoke Access
+                              Revoke
                             </button>
                           )}
 
@@ -472,7 +603,7 @@ export default function Influencers() {
                             <button
                               disabled={isLoading}
                               onClick={() => handleApprove(inf)}
-                              className="px-2.5 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-semibold"
+                              className="px-2 py-1 text-[11px] text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-semibold"
                             >
                               Re-Approve
                             </button>
@@ -685,6 +816,287 @@ export default function Influencers() {
                 >
                   <Save className="w-4 h-4" />
                   {settingsModal.saving ? 'Saving Changes...' : 'Save Settings'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* Influencer Detail Modal */}
+      {/* ==================================================== */}
+      {detailModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-3xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-100 to-pink-100 text-purple-700 font-bold text-lg flex items-center justify-center uppercase">
+                  {(detailModal.data?.name || detailModal.data?.user?.name || 'I')[0]}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    {detailModal.data?.name || detailModal.data?.user?.name || 'Creator Details'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {detailModal.data?.mobile_number} • Code: <span className="font-mono font-bold text-purple-700">{detailModal.data?.referral_code}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {detailModal.data?.status === 'approved' && (
+                  <button
+                    onClick={() => handleOpenPayout(detailModal.data)}
+                    disabled={Number(detailModal.data?.metrics?.need_to_pay ?? detailModal.data?.metrics?.wallet_balance ?? 0) <= 0}
+                    className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs disabled:opacity-40"
+                  >
+                    <CreditCard className="w-3.5 h-3.5" />
+                    <span>Pay Remaining (₹{Number(detailModal.data?.metrics?.need_to_pay ?? detailModal.data?.metrics?.wallet_balance ?? 0).toFixed(2)})</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto py-5 space-y-6 pr-1">
+              {detailModal.loading ? (
+                <div className="py-12 text-center text-slate-500">
+                  <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-xs">Loading creator data & orders...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Financial Settlement Snapshot Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-100">
+                      <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wider">Total Sales Driven</p>
+                      <p className="text-lg font-bold text-slate-900 mt-1">
+                        ₹{Number(detailModal.data?.metrics?.total_sales_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{detailModal.data?.metrics?.total_sales_count || 0} orders</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100">
+                      <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Total Earnings</p>
+                      <p className="text-lg font-bold text-slate-900 mt-1">
+                        ₹{Number(detailModal.data?.metrics?.total_earnings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-semibold mt-0.5">Lifetime share</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-100">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Already Paid</p>
+                      <p className="text-lg font-bold text-blue-700 mt-1">
+                        ₹{Number(detailModal.data?.metrics?.total_paid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Settled to creator</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Need To Pay</p>
+                      <p className="text-lg font-bold text-amber-800 mt-1">
+                        ₹{Number(detailModal.data?.metrics?.need_to_pay ?? detailModal.data?.metrics?.wallet_balance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-amber-600 font-semibold mt-0.5">Remaining balance</p>
+                    </div>
+                  </div>
+
+                  {/* Profile & Banking Details */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/70 text-xs">
+                    <div>
+                      <p className="font-bold text-slate-700 mb-2">Creator Profile Information</p>
+                      <div className="space-y-1.5 text-slate-600">
+                        <p><span className="text-slate-400">Social Channel:</span> {detailModal.data?.platform_display || detailModal.data?.platform}</p>
+                        <p>
+                          <span className="text-slate-400">Link:</span>{' '}
+                          {detailModal.data?.platform_link ? (
+                            <a href={detailModal.data.platform_link} target="_blank" rel="noreferrer" className="text-purple-600 hover:underline">
+                              {detailModal.data.platform_link}
+                            </a>
+                          ) : (
+                            'None'
+                          )}
+                        </p>
+                        <p><span className="text-slate-400">Commission Rate:</span> <strong className="text-slate-800">{detailModal.data?.commission_percentage}%</strong></p>
+                        <p><span className="text-slate-400">Joined On:</span> {detailModal.data?.created_at ? new Date(detailModal.data.created_at).toLocaleDateString() : 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="font-bold text-slate-700 mb-2">Payment Details</p>
+                      <div className="space-y-1.5 text-slate-600">
+                        <p><span className="text-slate-400">UPI ID:</span> <strong className="text-slate-800">{detailModal.data?.upi_id || 'Not configured'}</strong></p>
+                        <p><span className="text-slate-400">Bank Details:</span> {detailModal.data?.bank_details && Object.keys(detailModal.data.bank_details).length > 0 ? JSON.stringify(detailModal.data.bank_details) : 'Not configured'}</p>
+                        {detailModal.data?.admin_notes && (
+                          <div className="mt-2 pt-2 border-t border-slate-200">
+                            <span className="text-slate-400 block mb-0.5">Admin & Payout Notes:</span>
+                            <pre className="text-[10px] text-slate-700 whitespace-pre-wrap font-sans bg-white p-2 rounded-lg border border-slate-200">
+                              {detailModal.data.admin_notes}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attributed Orders History */}
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
+                      Attributed Customer Orders ({detailModal.data?.orders?.length || 0})
+                    </h4>
+                    {!detailModal.data?.orders || detailModal.data.orders.length === 0 ? (
+                      <div className="p-6 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
+                        No orders have been placed using this creator’s referral code yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 text-[10px] font-bold uppercase text-slate-500 border-b border-slate-200">
+                            <tr>
+                              <th className="py-2.5 px-3">Order #</th>
+                              <th className="py-2.5 px-3">Customer</th>
+                              <th className="py-2.5 px-3">Status</th>
+                              <th className="py-2.5 px-3 text-right">Order Amount</th>
+                              <th className="py-2.5 px-3 text-right">Creator Commission</th>
+                              <th className="py-2.5 px-3">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {detailModal.data.orders.map((ord) => (
+                              <tr key={ord.order_uid} className="hover:bg-slate-50/50">
+                                <td className="py-2 px-3 font-mono font-bold text-slate-800">{ord.order_number}</td>
+                                <td className="py-2 px-3 text-slate-600">{ord.customer_name}</td>
+                                <td className="py-2 px-3">
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-700 uppercase">
+                                    {ord.order_status}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-right font-semibold text-slate-800">₹{ord.grand_total}</td>
+                                <td className="py-2 px-3 text-right font-bold text-emerald-600">+₹{ord.influencer_commission}</td>
+                                <td className="py-2 px-3 text-slate-400 text-[11px]">{ord.created_at}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDetailModal({ isOpen: false, loading: false, data: null })}
+                className="px-5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* Pay Influencer Modal */}
+      {/* ==================================================== */}
+      {payoutModal.isOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <CreditCard className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  Pay Influencer Commission
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {payoutModal.influencer?.name || payoutModal.influencer?.referral_code}
+                </p>
+              </div>
+            </div>
+
+            {payoutModal.error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium">
+                {payoutModal.error}
+              </div>
+            )}
+
+            {payoutModal.success && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>Payout recorded successfully! Need-to-pay balance updated.</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmPayout} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs">
+                <span className="font-semibold text-amber-800">Remaining Need To Pay:</span>
+                <span className="font-bold text-sm text-amber-900 font-mono">
+                  ₹{Number(payoutModal.influencer?.metrics?.need_to_pay ?? payoutModal.influencer?.metrics?.wallet_balance ?? 0).toFixed(2)}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Payout Amount (₹) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-xs font-bold text-slate-400">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={payoutModal.amount}
+                    onChange={(e) => setPayoutModal((prev) => ({ ...prev, amount: e.target.value }))}
+                    className="w-full pl-8 pr-4 py-2.5 text-sm font-bold font-mono text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Deducts from Remaining Need to Pay and adds to Total Paid.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Payment Reference / Note (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. UPI Ref #98127391823 or Bank NEFT"
+                  value={payoutModal.note}
+                  onChange={(e) => setPayoutModal((prev) => ({ ...prev, note: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPayoutModal({ isOpen: false, influencer: null, amount: '', note: '', submitting: false, error: '', success: false })}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={payoutModal.submitting || payoutModal.success}
+                  className="px-5 py-2.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md shadow-emerald-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  {payoutModal.submitting ? 'Recording Payout...' : 'Confirm Payout'}
                 </button>
               </div>
             </form>

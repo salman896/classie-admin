@@ -27,5 +27,17 @@ export const influencerService = {
     const response = await apiClient.post('/api/admin/settings/', settingsData);
     return response.data;
   },
+
+  // Get single influencer detail with followers & attributed orders
+  getInfluencerDetail: async (uid) => {
+    const response = await apiClient.get(`/api/admin/influencers/${uid}/`);
+    return response.data;
+  },
+
+  // Pay influencer remaining need-to-pay balance
+  payInfluencer: async (uid, data = {}) => {
+    const response = await apiClient.post(`/api/admin/influencers/${uid}/payout/`, data);
+    return response.data;
+  },
 };
 
