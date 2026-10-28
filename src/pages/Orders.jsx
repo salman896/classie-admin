@@ -45,6 +45,12 @@ export default function Orders() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ text: '', type: '' });
 
+  // Shipping & Tracking Modal state
+  const [shippingModalOpen, setShippingModalOpen] = useState(false);
+  const [trackingIdInput, setTrackingIdInput] = useState('');
+  const [courierPartnerInput, setCourierPartnerInput] = useState('Delhivery');
+  const [shippingNotesInput, setShippingNotesInput] = useState('');
+
   useEffect(() => {
     fetchOrders();
   }, [statusFilter, paymentFilter]);
@@ -117,6 +123,16 @@ export default function Orders() {
 
   const handleStatusTransition = async (nextStatus) => {
     if (!selectedOrder) return;
+
+    // If advancing to SHIPPED, open tracking ID modal instead of immediate update
+    if (nextStatus === 'shipped') {
+      setTrackingIdInput(selectedOrder.tracking_id || '');
+      setCourierPartnerInput(selectedOrder.courier_partner || 'Delhivery');
+      setShippingNotesInput('');
+      setShippingModalOpen(true);
+      return;
+    }
+
     try {
       setUpdatingStatus(true);
       setStatusMessage({ text: '', type: '' });
@@ -140,10 +156,45 @@ export default function Orders() {
     }
   };
 
+  const handleConfirmShipment = async (e) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+
+    try {
+      setUpdatingStatus(true);
+      setStatusMessage({ text: '', type: '' });
+
+      const payload = {
+        order_status: 'shipped',
+        tracking_id: trackingIdInput.trim(),
+        courier_partner: courierPartnerInput.trim(),
+      };
+      if (shippingNotesInput.trim()) {
+        payload.notes = shippingNotesInput.trim();
+      }
+
+      const res = await orderService.updateOrderStatus(selectedOrder.order_number || selectedOrder.uid, payload);
+      const updated = res?.data || res;
+      setSelectedOrder(updated);
+      setAllowedTransitions(res?.allowed_next_statuses || []);
+      setStatusMessage({ text: `Order marked as SHIPPED with Tracking ID: ${trackingIdInput.trim()}`, type: 'success' });
+      setShippingModalOpen(false);
+
+      fetchOrders();
+    } catch (err) {
+      const errorMsg = err.response?.data?.errors || 'Failed to update shipment tracking.';
+      setStatusMessage({ text: errorMsg, type: 'error' });
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'placed':
         return <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-semibold flex items-center gap-1.5"><Clock className="w-3 h-3" /> Placed</span>;
+      case 'confirmed':
+        return <span className="px-2.5 py-1 bg-teal-50 text-teal-700 border border-teal-200 rounded-full text-xs font-semibold flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-teal-600" /> Confirmed (Paid)</span>;
       case 'processing':
         return <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-semibold flex items-center gap-1.5"><RefreshCw className="w-3 h-3 animate-spin" /> Processing</span>;
       case 'shipped':
@@ -387,6 +438,39 @@ export default function Orders() {
                 </div>
               </div>
 
+              {/* Shipping / Tracking Details if available */}
+              {(selectedOrder.tracking_id || selectedOrder.courier_partner || selectedOrder.order_status === 'shipped' || selectedOrder.order_status === 'out_for_delivery' || selectedOrder.order_status === 'delivered') && (
+                <div className="p-4 rounded-2xl border border-sky-200 bg-sky-50/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-sky-900 flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-sky-600" />
+                      Shipment & Tracking Information
+                    </h4>
+                    <button
+                      onClick={() => {
+                        setTrackingIdInput(selectedOrder.tracking_id || '');
+                        setCourierPartnerInput(selectedOrder.courier_partner || 'Delhivery');
+                        setShippingNotesInput('');
+                        setShippingModalOpen(true);
+                      }}
+                      className="text-[11px] font-bold text-sky-700 hover:text-sky-900 underline"
+                    >
+                      {selectedOrder.tracking_id ? 'Update Tracking' : 'Add Tracking'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-slate-700">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Courier Partner</span>
+                      <span className="font-semibold text-slate-900">{selectedOrder.courier_partner || 'Not specified'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Tracking / AWB Number</span>
+                      <span className="font-mono font-bold text-sky-800">{selectedOrder.tracking_id || 'Pending generation'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Customer Contact & Delivery Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-2">
@@ -487,6 +571,102 @@ export default function Orders() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch Shipment & Tracking Modal */}
+      {shippingModalOpen && (
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-2xl bg-sky-50 flex items-center justify-center text-sky-600">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Ship Order & Add Tracking</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">{selectedOrder?.order_number}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShippingModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmShipment} className="space-y-4 pt-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Courier / Logistics Partner
+                </label>
+                <select
+                  value={courierPartnerInput}
+                  onChange={(e) => setCourierPartnerInput(e.target.value)}
+                  className="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#9d71c7] bg-white font-medium"
+                >
+                  <option value="Delhivery">Delhivery</option>
+                  <option value="Blue Dart">Blue Dart</option>
+                  <option value="DTDC">DTDC</option>
+                  <option value="India Post (Speed Post)">India Post (Speed Post)</option>
+                  <option value="Shiprocket">Shiprocket</option>
+                  <option value="Shadowfax">Shadowfax</option>
+                  <option value="Ecom Express">Ecom Express</option>
+                  <option value="Xpressbees">Xpressbees</option>
+                  <option value="Other">Other / Local Courier</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Tracking ID / AWB Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. DEL123456789IN"
+                  value={trackingIdInput}
+                  onChange={(e) => setTrackingIdInput(e.target.value)}
+                  className="w-full text-xs font-mono px-3.5 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#9d71c7]"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  This tracking code will be shared directly with the customer.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Internal / Dispatch Notes (Optional)
+                </label>
+                <textarea
+                  rows="2"
+                  placeholder="Any parcel notes or package details..."
+                  value={shippingNotesInput}
+                  onChange={(e) => setShippingNotesInput(e.target.value)}
+                  className="w-full text-xs px-3.5 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#9d71c7]"
+                ></textarea>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShippingModalOpen(false)}
+                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingStatus || !trackingIdInput.trim()}
+                  className="w-1/2 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {updatingStatus ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Truck className="w-3.5 h-3.5" />}
+                  <span>Confirm Dispatch</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
