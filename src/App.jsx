@@ -9,6 +9,7 @@ import Recommendations from './pages/Recommendations';
 import Products from './pages/Products';
 import Orders from './pages/Orders';
 import Influencers from './pages/Influencers';
+import Notifications from './pages/Notifications';
 
 const AdminLayout = () => {
   const { isAuthenticated } = useAuth();
@@ -32,6 +33,8 @@ const AdminLayout = () => {
         return <Recommendations />;
       case 'products':
         return <Products />;
+      case 'notifications':
+        return <Notifications />;
       default:
         return <Dashboard setActiveTab={setActiveTab} />;
     }
@@ -51,6 +54,8 @@ const AdminLayout = () => {
         return 'Cycle Recommendation Plans';
       case 'products':
         return 'Catalogue & Inventory';
+      case 'notifications':
+        return 'Customer Push Notifications';
       default:
         return 'Admin Portal';
     }

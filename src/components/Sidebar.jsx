@@ -7,7 +7,8 @@ import {
   Package, 
   ShoppingBag,
   LogOut, 
-  Layers
+  Layers,
+  Bell
 } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab }) => {
@@ -20,6 +21,7 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
     { id: 'influencers', label: 'Influencers', icon: Sparkles },
     { id: 'recommendations', label: 'Recommendations', icon: Layers },
     { id: 'products', label: 'Products', icon: Package },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
   ];
 
   return (
@@ -50,33 +52,37 @@ const Sidebar = ({ activeTab, setActiveTab }) => {
                   : 'text-slate-300 hover:text-white hover:bg-white/5 hover:translate-x-0.5'
               }`}
             >
-              <Icon size={18} className={isActive ? 'text-white' : 'text-slate-400'} />
-              <span>{item.label}</span>
+              <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+              <span className="truncate">{item.label}</span>
             </button>
           );
         })}
       </nav>
 
-      {/* Admin Profile & Logout - Always pinned at bottom */}
-      <div className="p-4 border-t border-white/10 bg-[#161324] flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-[#3b3356] text-white font-bold text-xs flex items-center justify-center flex-shrink-0 ring-2 ring-white/10">
-            {user?.name ? user.name[0].toUpperCase() : 'A'}
+      {/* Footer Profile & Logout */}
+      <div className="p-4 border-t border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/5 border border-white/5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[#9d71c7]/30 flex items-center justify-center text-[#9d71c7] font-bold text-xs uppercase flex-shrink-0">
+              {user?.email?.charAt(0) || 'A'}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate leading-tight">
+                {user?.name || user?.email?.split('@')[0] || 'Administrator'}
+              </p>
+              <p className="text-[10px] text-slate-400 truncate leading-tight">
+                {user?.email || 'admin@classie.com'}
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col min-w-0">
-            <span className="text-xs font-bold text-white truncate max-w-[120px]">
-              {user?.name || user?.email || 'Admin'}
-            </span>
-            <span className="text-[10px] text-[#b388dc] font-medium tracking-wide uppercase">Administrator</span>
-          </div>
+          <button
+            onClick={logout}
+            title="Log Out"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors flex-shrink-0"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-        <button 
-          onClick={logout} 
-          title="Sign out"
-          className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors flex items-center justify-center cursor-pointer"
-        >
-          <LogOut size={17} />
-        </button>
       </div>
     </aside>
   );
