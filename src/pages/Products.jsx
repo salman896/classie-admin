@@ -6,6 +6,14 @@ import {
   AlertCircle, Sparkles, FileText, ShieldAlert
 } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://classie-care-backend.onrender.com';
+
+const formatImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${API_BASE_URL.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -498,7 +506,7 @@ const Products = () => {
                             <div className="flex items-center gap-3">
                               {p.primary_image_url ? (
                                 <img
-                                  src={p.primary_image_url}
+                                  src={formatImageUrl(p.primary_image_url)}
                                   alt={p.name}
                                   className="w-11 h-11 rounded-lg object-cover border border-slate-100"
                                 />
